@@ -10,55 +10,12 @@ struct LargeFileScanView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 PageHeader(
-                    title: "大文件扫描",
+                    title: "空间透视分析",
                     subtitle: "按阈值列出占用空间的大文件；更小的文件自动合并为数量与总大小，避免列表爆炸。",
                     systemImage: "magnifyingglass"
                 )
 
-                ChromeCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("扫描目标")
-                            .font(.headline)
-                        HStack(spacing: 12) {
-                            Image(systemName: "folder.fill")
-                                .font(.title2)
-                                .foregroundStyle(AppTheme.accent)
-                            Text(model.scanRoot?.path ?? "尚未选择文件夹")
-                                .font(.subheadline)
-                                .lineLimit(2)
-                                .truncationMode(.middle)
-                                .foregroundStyle(model.scanRoot == nil ? .tertiary : .primary)
-                            Spacer(minLength: 8)
-                            Button("选择文件夹…") { model.chooseScanRoot() }
-                                .buttonStyle(GhostPillButton())
-                            Button {
-                                model.startScan()
-                            } label: {
-                                Label("开始扫描", systemImage: "sparkle.magnifyingglass")
-                            }
-                            .buttonStyle(AccentPillButton())
-                            .disabled(model.isScanning || model.scanRoot == nil)
-                            .keyboardShortcut(.defaultAction)
-                        }
-                    }
-                }
-
-                if model.isScanning {
-                    ChromeCard {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                ProgressView()
-                                    .scaleEffect(0.9)
-                                Text("正在扫描…")
-                                    .font(.headline)
-                            }
-                            Text(model.progressPath)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
-                        }
-                    }
-                }
+                ScanControlCard(model: model)
 
                 if let err = model.errorMessage {
                     ChromeCard {
@@ -103,7 +60,7 @@ struct LargeFileScanView: View {
                             Text("≥ \(ByteFormat.string(fromBytes: r.thresholdBytes)) 的文件逐条展示。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            // 列顺序：序号 → 大小 → 访达 → 说明 → 路径
+                            // 列顺序：序号 → 大小 → 说明 → 路径（访达 + 复制 + 文本）
                             Table(Array(r.largeFiles.enumerated().map { NumberedLargeFile(ordinal: $0.offset + 1, entry: $0.element) })) {
                                 TableColumn("序号") { row in
                                     Text("\(row.ordinal)")
@@ -116,16 +73,6 @@ struct LargeFileScanView: View {
                                         .monospacedDigit()
                                 }
                                 .width(min: 64, ideal: 72, max: 88)
-                                TableColumn("") { row in
-                                    Button {
-                                        model.revealInFinder(row.entry.url)
-                                    } label: {
-                                        Image(systemName: "arrow.right.circle.fill")
-                                    }
-                                    .buttonStyle(IconPillButton(tint: AppTheme.accent))
-                                    .help("在访达中显示")
-                                }
-                                .width(min: 32, ideal: 36, max: 44)
                                 TableColumn("说明") { row in
                                     Text(row.entry.friendlyPathLabel)
                                         .font(.caption)
@@ -136,6 +83,13 @@ struct LargeFileScanView: View {
                                 .width(min: 120, ideal: 144, max: 360)
                                 TableColumn("路径") { row in
                                     HStack(spacing: 6) {
+                                        Button {
+                                            model.revealInFinder(row.entry.url)
+                                        } label: {
+                                            Image(systemName: "arrow.right.circle.fill")
+                                        }
+                                        .buttonStyle(IconPillButton(tint: AppTheme.accent))
+                                        .help("在访达中显示该文件")
                                         Button {
                                             NSPasteboard.general.clearContents()
                                             NSPasteboard.general.setString(row.entry.pathDisplay, forType: .string)
@@ -232,18 +186,15 @@ struct LargeFileScanView: View {
                                 .monospacedDigit()
                         }
                         .width(min: 48, ideal: 56, max: 72)
-                        TableColumn("") { row in
-                            Button {
-                                model.revealInFinder(URL(fileURLWithPath: row.dir.path, isDirectory: true))
-                            } label: {
-                                Image(systemName: "arrow.right.circle.fill")
-                            }
-                            .buttonStyle(IconPillButton(tint: AppTheme.accent))
-                            .help("在访达中显示")
-                        }
-                        .width(min: 32, ideal: 36, max: 44)
                         TableColumn("目录路径") { row in
                             HStack(spacing: 6) {
+                                Button {
+                                    model.revealInFinder(URL(fileURLWithPath: row.dir.path, isDirectory: true))
+                                } label: {
+                                    Image(systemName: "arrow.right.circle.fill")
+                                }
+                                .buttonStyle(IconPillButton(tint: AppTheme.accent))
+                                .help("在访达中打开该目录")
                                 Button {
                                     NSPasteboard.general.clearContents()
                                     NSPasteboard.general.setString(row.dir.path, forType: .string)
@@ -289,6 +240,105 @@ struct LargeFileScanView: View {
         }
     }
 
+}
+
+// MARK: - Scan Control Card
+
+private struct ScanControlCard: View {
+    @ObservedObject var model: LargeFileScanViewModel
+    @State private var isPulsing = false
+
+    var body: some View {
+        ChromeCard {
+            VStack(spacing: 20) {
+                // 目录行
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.fill")
+                        .foregroundStyle(AppTheme.accent)
+                    Text(model.scanRoot?.path ?? "~")
+                        .font(.subheadline)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    Button("更换目录") { model.chooseScanRoot() }
+                        .buttonStyle(GhostPillButton(compact: true))
+                        .disabled(model.isScanning)
+                }
+
+                // 大圆按钮
+                ZStack {
+                    // 扫描中光晕
+                    if model.isScanning {
+                        Circle()
+                            .fill(AppTheme.danger.opacity(0.15))
+                            .frame(width: 148, height: 148)
+                            .scaleEffect(isPulsing ? 1.18 : 1.0)
+                            .opacity(isPulsing ? 0 : 0.7)
+                            .animation(.easeOut(duration: 1.1).repeatForever(autoreverses: false), value: isPulsing)
+                    }
+
+                    Button {
+                        if model.isScanning {
+                            model.stopScan()
+                        } else {
+                            model.startScan()
+                        }
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    model.isScanning
+                                        ? LinearGradient(colors: [AppTheme.danger, AppTheme.warning], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                        : LinearGradient(colors: [AppTheme.accent, AppTheme.accentSecondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                )
+                                .frame(width: 120, height: 120)
+                                .shadow(color: (model.isScanning ? AppTheme.danger : AppTheme.accent).opacity(0.35), radius: 18, y: 6)
+
+                            if model.isScanning {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "stop.fill")
+                                        .font(.system(size: 22, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("停止")
+                                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                }
+                            } else {
+                                Text("扫描")
+                                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(model.isScanning ? .cancelAction : .defaultAction)
+                }
+                .frame(maxWidth: .infinity)
+                .onChange(of: model.isScanning) {
+                    isPulsing = model.isScanning
+                }
+
+                // 进度信息
+                if model.isScanning {
+                    VStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.85)
+                        Text(model.progressPath.isEmpty ? "正在准备…" : model.progressPath)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 480)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+            }
+            .animation(.easeOut(duration: 0.25), value: model.isScanning)
+            .padding(.vertical, 8)
+        }
+    }
 }
 
 private struct NumberedLargeFile: Identifiable {

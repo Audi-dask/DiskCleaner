@@ -130,6 +130,13 @@ final class PathLabelService {
     {"version":1,"rules":[
     {"id":"ollama-blob","ifContains":"/.ollama/models/","ifAlsoContains":"/blobs/sha256-","label":"Ollama 模型数据"},
     {"id":"ollama-models-root","ifContains":"/.ollama/models/","label":"Ollama 数据目录"},
+    {"id":"larkshell-update-download","ifContains":"/Library/Application Support/LarkShell/update/update_downloading","label":"飞书 · 客户端更新下载缓存（LarkShell，.zip 等为安装包临时文件）"},
+    {"id":"larkshell-application-support","ifContains":"/Library/Application Support/LarkShell/","label":"飞书 · 客户端支持数据（LarkShell，含 sdk_storage 资源、小程序/网页组件数据等）"},
+    {"id":"apple-wallpaper-aerials-videos","ifContains":"/Library/Application Support/com.apple.wallpaper/aerials/videos","label":"macOS 系统动态壁纸 · 航拍视频（Aerial，.mov 等为系统屏保资源）"},
+    {"id":"uv-cache","ifContains":"/.cache/uv/","label":"uv（Python 包管理器）· 工具缓存（~/.cache/uv）"},
+    {"id":"torch-cache","ifContains":"/.cache/torch/","label":"PyTorch · 缓存（含 Hub 检查点、预训练权重等，~/.cache/torch）"},
+    {"id":"user-dot-cache","ifContains":"/.cache/","label":"用户缓存（~/.cache）"},
+    {"id":"playwright-library-caches","ifContains":"/Library/Caches/ms-playwright","label":"Playwright · 浏览器与运行时缓存（~/Library/Caches，含 Go 版 ms-playwright-go 等）"},
     {"id":"container-wechat-xwechat","ifContains":"/Library/Containers/","ifAlsoContains":"xwechat_files","label":"{appName} · 用户数据（含聊天记录等，勿随意删除）","context":"container"},
     {"id":"container-sandbox-caches","ifContains":"/Library/Containers/","ifAlsoContains":"/Data/Library/Caches/","label":"{appName} · 沙盒缓存","context":"container"},
     {"id":"container-default","ifContains":"/Library/Containers/","label":"{appName} · 沙盒数据","context":"container"},

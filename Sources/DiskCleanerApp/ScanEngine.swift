@@ -1,19 +1,37 @@
 import Foundation
 
+// MARK: - Cancellation token（线程安全，不依赖 Atomics 包）
+
+final class ScanCancellationToken: @unchecked Sendable {
+    private var _cancelled = false
+    private let lock = NSLock()
+
+    var isCancelled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _cancelled
+    }
+
+    func cancel() {
+        lock.lock(); _cancelled = true; lock.unlock()
+    }
+}
+
 enum ScanEngine {
     static func scanDirectory(
         root: URL,
         thresholdBytes: Int64,
+        token: ScanCancellationToken = ScanCancellationToken(),
         progress: (@Sendable (String) -> Void)? = nil
     ) async -> ScanResult {
         await Task.detached(priority: .userInitiated) {
-            performScan(root: root, thresholdBytes: thresholdBytes, progress: progress)
+            performScan(root: root, thresholdBytes: thresholdBytes, token: token, progress: progress)
         }.value
     }
 
     private static func performScan(
         root: URL,
         thresholdBytes: Int64,
+        token: ScanCancellationToken,
         progress: (@Sendable (String) -> Void)?
     ) -> ScanResult {
         let fm = FileManager.default
@@ -60,6 +78,7 @@ enum ScanEngine {
         scanLoop(
             enumerator: enumerator,
             thresholdBytes: thresholdBytes,
+            token: token,
             largeFiles: &largeFiles,
             smallCount: &smallCount,
             smallBytes: &smallBytes,
@@ -164,6 +183,7 @@ enum ScanEngine {
     private static func scanLoop(
         enumerator: FileManager.DirectoryEnumerator,
         thresholdBytes: Int64,
+        token: ScanCancellationToken,
         largeFiles: inout [LargeFileEntry],
         smallCount: inout Int,
         smallBytes: inout Int64,
@@ -174,6 +194,7 @@ enum ScanEngine {
         progress: (@Sendable (String) -> Void)?
     ) {
         while let url = enumerator.nextObject() as? URL {
+            if token.isCancelled { break }
             do {
                 let rv = try url.resourceValues(forKeys: [
                     .isRegularFileKey,

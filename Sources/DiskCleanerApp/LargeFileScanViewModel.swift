@@ -10,7 +10,10 @@ final class LargeFileScanViewModel: ObservableObject {
     @Published var progressPath: String = ""
     @Published var errorMessage: String?
 
+    private var scanToken: ScanCancellationToken?
+
     init() {
+        scanRoot = FileManager.default.homeDirectoryForCurrentUser
         restoreBookmarkedRoot()
     }
 
@@ -24,9 +27,7 @@ final class LargeFileScanViewModel: ObservableObject {
                 relativeTo: nil,
                 bookmarkDataIsStale: &stale
             )
-            if stale {
-                return
-            }
+            if stale { return }
             scanRoot = url
         } catch {
             errorMessage = "无法恢复上次扫描目录：\(error.localizedDescription)"
@@ -64,13 +65,16 @@ final class LargeFileScanViewModel: ObservableObject {
         scanResult = nil
         PathLabelService.shared.clearCache()
         let threshold = UserSettings.minDisplaySizeBytes
+        let token = ScanCancellationToken()
+        scanToken = token
         Task {
-            let result = await ScanEngine.scanDirectory(root: root, thresholdBytes: threshold) { path in
+            let result = await ScanEngine.scanDirectory(root: root, thresholdBytes: threshold, token: token) { path in
                 Task { @MainActor in
                     self.progressPath = path
                 }
             }
             await MainActor.run {
+                self.scanToken = nil
                 self.scanResult = result
                 self.isScanning = false
                 self.progressPath = ""
@@ -79,6 +83,13 @@ final class LargeFileScanViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func stopScan() {
+        scanToken?.cancel()
+        scanToken = nil
+        isScanning = false
+        progressPath = ""
     }
 
     func revealInFinder(_ url: URL) {
