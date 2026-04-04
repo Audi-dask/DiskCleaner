@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "ollama-blob",
+      "ifContains": "/.ollama/models/",
+      "ifAlsoContains": "/blobs/sha256-",
+      "label": "Ollama 模型数据"
+    },
+    {
+      "id": "ollama-models-root",
+      "ifContains": "/.ollama/models/",
+      "label": "Ollama 数据目录"
+    },
+    {
+      "id": "container-wechat-xwechat",
+      "ifContains": "/Library/Containers/",
+      "ifAlsoContains": "xwechat_files",
+      "label": "{appName} · 用户数据（含聊天记录等，勿随意删除）",
+      "context": "container"
+    },
+    {
+      "id": "container-sandbox-caches",
+      "ifContains": "/Library/Containers/",
+      "ifAlsoContains": "/Data/Library/Caches/",
+      "label": "{appName} · 沙盒缓存",
+      "context": "container"
+    },
+    {
+      "id": "container-default",
+      "ifContains": "/Library/Containers/",
+      "label": "{appName} · 沙盒数据",
+      "context": "container"
+    },
+    {
+      "id": "group-container-with-bundle",
+      "ifContains": "/Library/Group Containers/",
+      "label": "{appName} · 共享容器（Group Container）",
+      "context": "groupResolved"
+    },
+    {
+      "id": "group-container-fallback",
+      "ifContains": "/Library/Group Containers/",
+      "label": "共享容器 · {groupFolder}",
+      "context": "groupFallback"
+    }
+  ]
+}

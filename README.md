@@ -1,12 +1,14 @@
 # DiskCleanerApp
 
-macOS 原生磁盘分析与小范围清理工具（Swift + SwiftUI）。功能包括：按可配置阈值列出大文件、低于阈值的文件聚合统计、内置开发缓存 JSON 清单（可清理 / 谨慎 / 禁止）。
+macOS 原生磁盘分析与小范围清理工具（Swift + SwiftUI）。功能包括：按可配置阈值列出大文件、低于阈值的小文件按父目录与「应用/标识」聚合（甜甜圈图 + 可筛选的目录明细）、内置开发缓存 JSON 清单（可清理 / 谨慎 / 禁止）。
+
+**系统要求**：macOS 14 及以上（SwiftUI Charts 等 API）。
 
 ## 应用图标
 
 - **Asset Catalog**（给 SwiftPM / Xcode 用）：[`Sources/DiskCleanerApp/Resources/Assets.xcassets/AppIcon.appiconset/`](Sources/DiskCleanerApp/Resources/Assets.xcassets/AppIcon.appiconset/)（由 `AppIcon.appiconset` 与全套 PNG 组成）。
 - **设计主图备份**（不参与打包）：[`Branding/icon_1024x1024_master.png`](Branding/icon_1024x1024_master.png)。
-- 导出尺寸说明见 [APP_ICON_SIZES.md](APP_ICON_SIZES.md)。
+- 各槽位像素与导出流程以 **Xcode Asset Catalog** 与 [Apple 文档](https://developer.apple.com/design/human-interface-guidelines/app-icons) 为准。
 
 ### 日常分发：只要 DMG
 
@@ -49,6 +51,12 @@ xattr -cr /Applications/DiskCleanerApp.app
 
 说明：未做 **Developer ID 签名 + 公证** 时，从网盘/浏览器下载常会带 **隔离（quarantine）**，`xattr -cr` 是去掉扩展属性里与隔离相关的标记；请只对你**信任来源**的包这样做。长期给多人用建议走签名与公证，可少依赖终端。
 
+## 大文件扫描页
+
+- **大文件列表**：≥ 设定阈值的文件逐条展示，含路径说明（见下节规则）、访达、复制路径。
+- **小文件概要**：低于阈值的体积按路径推断的 **应用/标识**（如 `com.google.Chrome`、`Caches` 下 bundle id 等）聚合成甜甜圈图；悬停扇区可看大小与占比；**点击扇区或图例** 可筛选下方目录明细（再点同一项可取消筛选）。「其余」为未进前十名的分组合并，不提供筛选。
+- **小文件目录明细**：每个小文件只计入其**直接父目录**；表格按体积取 **Top 100** 父目录展示。筛选后仅显示与所选分组键一致的父目录，便于从概要定位到具体路径（例如 Chrome / Google 相关目录）。
+
 ## 路径说明（大文件列表）
 
 规则由 [`Sources/DiskCleanerApp/Resources/path_label_rules.json`](Sources/DiskCleanerApp/Resources/path_label_rules.json) 配置：**按数组顺序首个匹配生效**。字段含义：
@@ -64,6 +72,8 @@ xattr -cr /Applications/DiskCleanerApp.app
 
 ## 构建与运行
 
+需要 **Xcode 15+**（或自带 Swift 5.9+ 的工具链）与 **macOS 14+** 运行环境。
+
 在仓库根目录执行：
 
 ```bash
@@ -73,6 +83,8 @@ swift run DiskCleanerApp
 ```
 
 也可在 Xcode 中选择 **File → Open** 打开 `Package.swift`，选取 `DiskCleanerApp` 可执行目标后运行。
+
+`.build/`、`dist/`、`.DS_Store` 等已写入 [`.gitignore`](.gitignore)，勿将本地构建产物与打包结果提交进仓库。
 
 ## 完全磁盘访问权限（Full Disk Access）
 

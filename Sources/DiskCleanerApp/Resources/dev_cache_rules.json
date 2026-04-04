@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "xcode-derived-data",
+      "path": "~/Library/Developer/Xcode/DerivedData",
+      "category": "safeToDelete",
+      "title": "Xcode DerivedData",
+      "description": "Xcode 构建产物与索引缓存。删除后需重新编译项目，通常可安全释放大量空间。"
+    },
+    {
+      "id": "xcode-archives",
+      "path": "~/Library/Developer/Xcode/Archives",
+      "category": "useWithCaution",
+      "title": "Xcode Archives",
+      "description": "旧版归档包。若仍需从归档上架或符号化崩溃日志，请先备份再删。"
+    },
+    {
+      "id": "xcode-ios-device-support",
+      "path": "~/Library/Developer/Xcode/iOS DeviceSupport",
+      "category": "useWithCaution",
+      "title": "Xcode iOS DeviceSupport",
+      "description": "设备调试符号。删后连接新系统版本设备时会重新下载。"
+    },
+    {
+      "id": "cocoapods-cache",
+      "path": "~/Library/Caches/CocoaPods",
+      "category": "safeToDelete",
+      "title": "CocoaPods 缓存",
+      "description": "Pods 下载缓存，删除后下次 pod install 会重新拉取。"
+    },
+    {
+      "id": "npm-cache",
+      "path": "~/.npm",
+      "category": "safeToDelete",
+      "title": "npm 缓存",
+      "description": "npm 包缓存，可通过 npm cache verify 验证；删除后安装会重新下载。"
+    },
+    {
+      "id": "yarn-cache",
+      "path": "~/Library/Caches/Yarn",
+      "category": "safeToDelete",
+      "title": "Yarn 缓存",
+      "description": "Yarn 全局缓存目录，删除后依赖会重新获取。"
+    },
+    {
+      "id": "pnpm-store",
+      "path": "~/Library/pnpm/store",
+      "category": "safeToDelete",
+      "title": "pnpm store",
+      "description": "pnpm 内容寻址存储，删除后重新安装会填充。"
+    },
+    {
+      "id": "gradle-caches",
+      "path": "~/.gradle/caches",
+      "category": "safeToDelete",
+      "title": "Gradle caches",
+      "description": "Gradle 依赖与构建缓存，删除后构建会重新下载/生成。"
+    },
+    {
+      "id": "android-build-cache",
+      "path": "~/.android/build-cache",
+      "category": "safeToDelete",
+      "title": "Android build-cache",
+      "description": "旧版 Android Gradle 构建缓存（若存在）。"
+    },
+    {
+      "id": "docker-data",
+      "path": "~/Library/Containers/com.docker.docker/Data",
+      "category": "safeToDelete",
+      "title": "Docker Desktop 数据",
+      "description": "镜像与容器数据。勿手动删此路径；请用 Docker Desktop 清理或官方命令，误删会导致 Docker 异常。"
+    },
+    {
+      "id": "homebrew-cache",
+      "path": "~/Library/Caches/Homebrew",
+      "category": "safeToDelete",
+      "title": "Homebrew 下载缓存",
+      "description": "brew 下载的安装包缓存，brew cleanup 也会处理类似内容。"
+    },
+    {
+      "id": "pip-cache",
+      "path": "~/Library/Caches/pip",
+      "category": "safeToDelete",
+      "title": "pip 缓存",
+      "description": "Python pip 下载缓存。"
+    },
+    {
+      "id": "composer-cache",
+      "path": "~/Library/Caches/composer",
+      "category": "safeToDelete",
+      "title": "Composer 缓存",
+      "description": "PHP Composer 缓存文件。"
+    },
+    {
+      "id": "go-build-cache",
+      "path": "~/Library/Caches/go-build",
+      "category": "safeToDelete",
+      "title": "Go build cache",
+      "description": "go build 缓存，删除后下次编译会重建。"
+    },
+    {
+      "id": "rustup-downloads",
+      "path": "~/.rustup/downloads",
+      "category": "safeToDelete",
+      "title": "rustup 下载缓存",
+      "description": "工具链安装包缓存。"
+    },
+    {
+      "id": "vscode-cached-extensions",
+      "path": "~/Library/Application Support/Code/CachedExtensionVSIXs",
+      "category": "safeToDelete",
+      "title": "VS Code 扩展安装包缓存",
+      "description": "已安装扩展的 VSIX 缓存。"
+    },
+    {
+      "id": "jetbrains-caches",
+      "path": "~/Library/Caches/JetBrains",
+      "category": "useWithCaution",
+      "title": "JetBrains IDE 缓存",
+      "description": "IDE 缓存；删除可能导致首次启动变慢或需重建索引，一般可接受。"
+    },
+    {
+      "id": "simulator-cache",
+      "path": "~/Library/Developer/CoreSimulator/Caches",
+      "category": "useWithCaution",
+      "title": "iOS Simulator Caches",
+      "description": "模拟器缓存；若模拟器异常可先尝试 Xcode 清理，再考虑手动删。"
+    },
+    {
+      "id": "keychain-folder",
+      "path": "~/Library/Keychains",
+      "category": "doNotDelete",
+      "title": "钥匙串数据目录",
+      "description": "系统与用户钥匙串存储。禁止通过清理工具删除，会导致无法登录与证书失效。界面中访达与废纸篓对此条均禁用。"
+    },
+    {
+      "id": "application-support-generic",
+      "path": "~/Library/Application Support",
+      "category": "doNotDelete",
+      "title": "Application Support（根目录）",
+      "description": "多数应用的用户数据与数据库所在。禁止整目录删除；仅个别子目录在清单中单独标注可清。界面中访达与废纸篓对此根路径禁用，避免误操作。"
+    }
+  ]
+}
