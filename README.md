@@ -6,9 +6,9 @@ macOS 原生磁盘分析与小范围清理工具（Swift + SwiftUI）。功能�
 
 ## 应用图标
 
-- **Asset Catalog**（给 SwiftPM / Xcode 用）：[`Sources/DiskCleanerApp/Resources/Assets.xcassets/AppIcon.appiconset/`](Sources/DiskCleanerApp/Resources/Assets.xcassets/AppIcon.appiconset/)（由 `AppIcon.appiconset` 与全套 PNG 组成）。
-- **设计主图备份**（不参与打包）：[`Branding/icon_1024x1024_master.png`](Branding/icon_1024x1024_master.png)。
-- 各槽位像素与导出流程以 **Xcode Asset Catalog** 与 [Apple 文档](https://developer.apple.com/design/human-interface-guidelines/app-icons) 为准。
+- **图标源（[`Branding/`](Branding/)）**：推荐全套 `16.png` … `1024.png`（像素边长与文件名一致）；或仅放 `1024.png` / `icon_1024x1024_master.png`，由脚本用 `sips` 生成其余槽位。
+- **Asset Catalog**：[`AppIcon.appiconset/`](Sources/DiskCleanerApp/Resources/Assets.xcassets/AppIcon.appiconset/) 由 [`scripts/sync_app_icon_from_branding.sh`](scripts/sync_app_icon_from_branding.sh) 同步；[`scripts/package_mac_app.sh`](scripts/package_mac_app.sh) 在 `swift build` 前会自动执行。若只跑 `swift build` 且改过 `Branding`，请先手动执行该同步脚本。
+- 槽位尺寸与规范见 [Apple App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons)。
 
 ### 日常分发：只要 DMG
 
