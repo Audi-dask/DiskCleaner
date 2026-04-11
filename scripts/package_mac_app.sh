@@ -78,7 +78,9 @@ cp "$BIN" "${MACOS_DIR}/${EXEC_NAME}"
 chmod +x "${MACOS_DIR}/${EXEC_NAME}"
 
 # SPM 运行时从 Bundle.main.bundleURL（即 .app/Contents）下加载模块资源包
+# 我们同时拷贝一份到 Resources 作为备份，确保安全加载逻辑能找到
 cp -R "$BUNDLE_SRC" "${CONTENTS}/"
+cp -R "$BUNDLE_SRC" "${RES}/"
 
 PLIST="${CONTENTS}/Info.plist"
 plutil -create xml1 "$PLIST"

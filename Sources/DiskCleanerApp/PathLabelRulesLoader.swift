@@ -19,7 +19,7 @@ struct PathLabelRuleRow: Codable, Sendable {
 
 enum PathLabelRulesLoader {
     static func loadFromBundle() -> PathLabelRulesDocument? {
-        guard let url = Bundle.module.url(forResource: "path_label_rules", withExtension: "json") else {
+        guard let url = Bundle.safeURL(forResource: "path_label_rules", withExtension: "json") else {
             return nil
         }
         guard let data = try? Data(contentsOf: url) else { return nil }

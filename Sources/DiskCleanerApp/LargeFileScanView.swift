@@ -136,6 +136,17 @@ struct LargeFileScanView: View {
                     Label("目录明细", systemImage: "folder.fill.badge.gearshape")
                         .font(.headline)
                     Spacer()
+                    
+                    // 重新统计按钮
+                    Button {
+                        model.refreshResults()
+                    } label: {
+                        Label("重新统计", systemImage: "arrow.clockwise")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .buttonStyle(GhostPillButton(tint: AppTheme.accent, compact: true))
+                    .help("快速检查列表中文件是否依然存在，并更新统计数据")
+                    
                     if let key = filterGroupKey {
                         HStack(spacing: 6) {
                             Image(systemName: "line.3.horizontal.decrease.circle.fill")
@@ -374,10 +385,11 @@ private struct SmallFilePieCard: View {
     let appGroups: [AppGroup]
     let totalBytes: Int64
     @Binding var selectedGroup: String?
-
+    
+    @State private var isExpanded = false
     @State private var rawSelectedAngle: Int64?
 
-    private let chartLimit = 10
+    private var chartLimit: Int { isExpanded ? 60 : 10 }
     private static let palette: [Color] = [
         .blue, .orange, .green, .red, .purple,
         .cyan, .pink, .yellow, .mint, .indigo, .gray,
@@ -401,7 +413,7 @@ private struct SmallFilePieCard: View {
         var result = topSlices.enumerated().map { idx, g in
             Slice(name: g.name, bytes: g.totalBytes, fileCount: g.fileCount, dirCount: g.dirCount, colorIndex: idx, isOther: false)
         }
-        if otherBytes > 0 {
+        if otherBytes > 0 && !isExpanded {
             let otherFileCount = appGroups.dropFirst(chartLimit).reduce(0) { $0 + $1.fileCount }
             let otherDirCount = appGroups.dropFirst(chartLimit).reduce(0) { $0 + $1.dirCount }
             result.append(Slice(name: "其余", bytes: otherBytes, fileCount: otherFileCount, dirCount: otherDirCount, colorIndex: chartLimit, isOther: true))
@@ -433,6 +445,23 @@ private struct SmallFilePieCard: View {
                     Label("分类统计", systemImage: "chart.donut")
                         .font(.headline)
                     Spacer()
+                    
+                    if appGroups.count > 10 {
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                isExpanded.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(isExpanded ? "收起" : "查看更多明细")
+                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(AppTheme.accent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     HStack(spacing: 4) {
                         Text("合计")
                             .font(.caption)

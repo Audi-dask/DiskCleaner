@@ -135,7 +135,7 @@ struct ContentView: View {
                                     .padding(.horizontal, 10)
                                 
                                 if let nsImage = NSImage(named: "DonationQR") ?? 
-                                   (Bundle.module.path(forResource: "DonationQR", ofType: "jpg").flatMap { NSImage(contentsOfFile: $0) }) {
+                                   (Bundle.safeURL(forResource: "DonationQR", withExtension: "jpg").flatMap { NSImage(contentsOfFile: $0.path) }) {
                                     Image(nsImage: nsImage)
                                         .resizable()
                                         .aspectRatio(contentMode: .fit)
