@@ -7,57 +7,76 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(
-                    title: "设置",
-                    subtitle: "调整列表阈值、磁盘权限说明与分发提示。",
-                    systemImage: "gearshape.fill"
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("全局设置")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("管理偏态阈值与系统底层权限")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 8)
 
-                ChromeCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label("大文件列表", systemImage: "slider.horizontal.3")
+                ChromeCard(useMaterial: true) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Label("扫描策略", systemImage: "slider.horizontal.3")
                             .font(.headline)
-                        Stepper(value: $minMB, in: 1...102_400, step: 1) {
-                            Text("列表最小展示体积：\(minMB) MB")
-                                .font(.subheadline.weight(.medium))
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("大文件阈值")
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                Text("\(minMB) MB")
+                                    .font(.system(.body, design: .monospaced, weight: .bold))
+                                    .foregroundStyle(AppTheme.accent)
+                            }
+                            
+                            Stepper("", value: $minMB, in: 1...102_400, step: 5)
+                                .labelsHidden()
                         }
-                        .onChange(of: minMB) {
-                            UserSettings.minDisplaySizeMB = minMB
-                        }
-                        Text("低于此大小的文件不会逐条列出；摘要中仍会显示数量与合计大小。")
+                        .padding(12)
+                        .background(Color.primary.opacity(0.03))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                        Text("低于此大小的文件不会逐条列出；摘要中仍会显示数量与合计数据。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
 
-                ChromeCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label("完全磁盘访问", systemImage: "lock.open.display")
+                ChromeCard(useMaterial: true) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Label("私密性与权限", systemImage: "lock.open.display")
                             .font(.headline)
-                        Text(
-                            "若需扫描系统目录或其他用户目录，请在「系统设置 → 隐私与安全性 → 完全磁盘访问权限」中勾选本应用。"
-                        )
-                        .font(.subheadline)
-                        .fixedSize(horizontal: false, vertical: true)
+                        
+                        Text("完全磁盘访问 (Full Disk Access)")
+                            .font(.subheadline.weight(.semibold))
+                        
+                        Text("若需扫描系统目录或其他用户目录，请务必在「系统设置 → 隐私与安全性」中授权。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
                         Button {
                             openFullDiskPrivacy()
                         } label: {
-                            Label("打开系统设置…", systemImage: "arrow.right.circle.fill")
+                            HStack {
+                                Image(systemName: "hand.raised.fill")
+                                Text("授权完全磁盘访问…")
+                            }
                         }
                         .buttonStyle(AccentPillButton())
                     }
                 }
 
-                ChromeCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("分发说明", systemImage: "shippingbox")
+                ChromeCard(useMaterial: true) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("开发者声明", systemImage: "shippingbox")
                             .font(.headline)
-                        Text(
-                            "未签名分发时，用户可能需使用 xattr 解除隔离；长期分发建议 Developer ID 签名与公证。Mac App Store 沙盒会限制全盘访问能力。"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text("当前为开发版本分发。若检测到「受损」或「无法打开」，请在终端执行 `xattr -cr` 或在安全性设置中点选「仍要打开」。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -65,6 +84,9 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { minMB = UserSettings.minDisplaySizeMB }
+        .onChange(of: minMB) { old, new in
+            UserSettings.minDisplaySizeMB = new
+        }
     }
 
     private func openFullDiskPrivacy() {

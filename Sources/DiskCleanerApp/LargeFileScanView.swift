@@ -9,11 +9,14 @@ struct LargeFileScanView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(
-                    title: "空间透视分析",
-                    subtitle: "按阈值列出占用空间的大文件；更小的文件自动合并为数量与总大小，避免列表爆炸。",
-                    systemImage: "magnifyingglass"
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("空间分析看板")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("洞察存储瓶颈，管理磁盘空间")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 8)
 
                 ScanControlCard(model: model)
 
@@ -127,10 +130,10 @@ struct LargeFileScanView: View {
         }
 
         // --- 2) 目录明细表 ---
-        ChromeCard {
-            VStack(alignment: .leading, spacing: 10) {
+        ChromeCard(useMaterial: true) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Label("小文件目录明细", systemImage: "folder.fill.badge.gearshape")
+                    Label("目录明细", systemImage: "folder.fill.badge.gearshape")
                         .font(.headline)
                     Spacer()
                     if let key = filterGroupKey {
@@ -148,17 +151,14 @@ struct LargeFileScanView: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(AppTheme.accent.opacity(0.08))
+                        .background(AppTheme.accent.opacity(0.12))
                         .clipShape(Capsule(style: .continuous))
                     }
                 }
-                Text("低于阈值（\(ByteFormat.string(fromBytes: r.thresholdBytes))）的文件按直接父目录汇总。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
 
                 if !r.smallFiles.topParents.isEmpty {
                     let filtered = filterGroupKey == nil
-                        ? r.smallFiles.topParents
+                        ? Array(r.smallFiles.topParents.prefix(100))
                         : r.smallFiles.topParents.filter { $0.groupKey == filterGroupKey }
                     let rows = filtered.enumerated().map {
                         NumberedParentDir(ordinal: $0.offset + 1, dir: $0.element, totalSmallBytes: r.smallFiles.totalBytes)
@@ -173,28 +173,28 @@ struct LargeFileScanView: View {
                         TableColumn("大小") { row in
                             Text(ByteFormat.string(fromBytes: row.dir.totalBytes))
                                 .monospacedDigit()
+                                .fontWeight(.medium)
                         }
-                        .width(min: 64, ideal: 72, max: 88)
+                        .width(min: 70, ideal: 80, max: 90)
                         TableColumn("占比") { row in
-                            Text("\(String(format: "%.1f", row.percentage))%")
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                            Gauge(value: row.percentage, in: 0...100) {
+                                Text("\(Int(row.percentage))%")
+                            }
+                            .gaugeStyle(.accessoryLinear)
+                            .tint(AppTheme.accent.opacity(0.7))
+                            .frame(width: 80)
                         }
-                        .width(min: 48, ideal: 56, max: 64)
-                        TableColumn("文件数") { row in
-                            Text("\(row.dir.fileCount)")
-                                .monospacedDigit()
-                        }
-                        .width(min: 48, ideal: 56, max: 72)
+                        .width(90)
                         TableColumn("目录路径") { row in
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Button {
                                     model.revealInFinder(URL(fileURLWithPath: row.dir.path, isDirectory: true))
                                 } label: {
-                                    Image(systemName: "arrow.right.circle.fill")
+                                    Image(systemName: "arrow.up.right.square")
                                 }
-                                .buttonStyle(IconPillButton(tint: AppTheme.accent))
-                                .help("在访达中打开该目录")
+                                .buttonStyle(IconPillButton(tint: .blue))
+                                .help("在 Finder 中查看")
+
                                 Button {
                                     NSPasteboard.general.clearContents()
                                     NSPasteboard.general.setString(row.dir.path, forType: .string)
@@ -203,23 +203,17 @@ struct LargeFileScanView: View {
                                 }
                                 .buttonStyle(IconPillButton(tint: .secondary))
                                 .help("复制完整路径")
+                                
                                 Text(row.dir.path)
+                                    .font(.system(size: 11, design: .monospaced))
                                     .lineLimit(1)
                                     .truncationMode(.middle)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         .width(min: 160, ideal: 480, max: .infinity)
                     }
                     .frame(minHeight: 330)
-
-                    let topSum = r.smallFiles.topParents.reduce(Int64(0)) { $0 + $1.totalBytes }
-                    let otherBytes = r.smallFiles.totalBytes - topSum
-                    if otherBytes > 0 {
-                        let otherPct = Double(otherBytes) / Double(r.smallFiles.totalBytes) * 100
-                        Text("其余目录合计 \(ByteFormat.string(fromBytes: otherBytes))（\(String(format: "%.1f", otherPct))%）")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                 }
 
                 if !r.errors.isEmpty {
@@ -239,104 +233,121 @@ struct LargeFileScanView: View {
             }
         }
     }
-
 }
 
 // MARK: - Scan Control Card
 
 private struct ScanControlCard: View {
     @ObservedObject var model: LargeFileScanViewModel
+    @State private var phase = 0.0
     @State private var isPulsing = false
 
     var body: some View {
-        ChromeCard {
-            VStack(spacing: 20) {
-                // 目录行
-                HStack(spacing: 8) {
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(AppTheme.accent)
-                    Text(model.scanRoot?.path ?? "~")
-                        .font(.subheadline)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 4)
-                    Button("更换目录") { model.chooseScanRoot() }
+        ChromeCard(useMaterial: true) {
+            VStack(spacing: 24) {
+                // 顶部扫描状态
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("扫描目录")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(AppTheme.accent)
+                            Text(model.scanRoot?.path ?? "~")
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                    Spacer()
+                    Button("更改") { model.chooseScanRoot() }
                         .buttonStyle(GhostPillButton(compact: true))
                         .disabled(model.isScanning)
                 }
 
-                // 大圆按钮
+                // 中心大按钮区域
                 ZStack {
-                    // 扫描中光晕
+                    // 背景光晕 (Aurora Effect - Compatible with macOS 14)
                     if model.isScanning {
-                        Circle()
-                            .fill(AppTheme.danger.opacity(0.15))
-                            .frame(width: 148, height: 148)
-                            .scaleEffect(isPulsing ? 1.18 : 1.0)
-                            .opacity(isPulsing ? 0 : 0.7)
-                            .animation(.easeOut(duration: 1.1).repeatForever(autoreverses: false), value: isPulsing)
+                        ZStack {
+                            Circle()
+                                .fill(AppTheme.accent.opacity(0.15))
+                                .frame(width: 140, height: 140)
+                                .offset(x: isPulsing ? 30 : -30, y: isPulsing ? -20 : 20)
+                            Circle()
+                                .fill(AppTheme.accentSecondary.opacity(0.15))
+                                .frame(width: 160, height: 160)
+                                .offset(x: isPulsing ? -40 : 40, y: isPulsing ? 30 : -30)
+                        }
+                        .blur(radius: 35)
+                        .rotationEffect(.degrees(phase))
+                        .onAppear {
+                            isPulsing = true
+                            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                                isPulsing = false
+                            }
+                            withAnimation(.linear(duration: 7).repeatForever(autoreverses: false)) {
+                                phase = 360
+                            }
+                        }
                     }
 
                     Button {
-                        if model.isScanning {
-                            model.stopScan()
-                        } else {
-                            model.startScan()
+                        withAnimation {
+                            if model.isScanning {
+                                model.stopScan()
+                            } else {
+                                model.startScan()
+                            }
                         }
                     } label: {
                         ZStack {
                             Circle()
                                 .fill(
-                                    model.isScanning
-                                        ? LinearGradient(colors: [AppTheme.danger, AppTheme.warning], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                        : LinearGradient(colors: [AppTheme.accent, AppTheme.accentSecondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    LinearGradient(
+                                        colors: model.isScanning 
+                                            ? [AppTheme.danger, AppTheme.danger.opacity(0.8)] 
+                                            : [Color.green, Color.green.opacity(0.7)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                                .frame(width: 120, height: 120)
-                                .shadow(color: (model.isScanning ? AppTheme.danger : AppTheme.accent).opacity(0.35), radius: 18, y: 6)
+                                .frame(width: 100, height: 100)
+                                .shadow(color: (model.isScanning ? AppTheme.danger : .green).opacity(0.4), radius: 12, y: 6)
 
-                            if model.isScanning {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "stop.fill")
-                                        .font(.system(size: 22, weight: .bold))
-                                        .foregroundStyle(.white)
-                                    Text("停止")
-                                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                }
-                            } else {
-                                Text("扫描")
-                                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.white)
+                            VStack(spacing: 4) {
+                                Image(systemName: model.isScanning ? "stop.fill" : "play.fill")
+                                    .font(.system(size: 24, weight: .bold))
+                                Text(model.isScanning ? "停止" : "开始扫描")
+                                    .font(.system(size: 12, weight: .heavy))
                             }
+                            .foregroundStyle(.white)
                         }
                     }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(model.isScanning ? .cancelAction : .defaultAction)
                 }
-                .frame(maxWidth: .infinity)
-                .onChange(of: model.isScanning) {
-                    isPulsing = model.isScanning
-                }
+                .padding(.vertical, 10)
 
-                // 进度信息
+                // 进度条与路径
                 if model.isScanning {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 12) {
                         ProgressView()
-                            .scaleEffect(0.85)
-                        Text(model.progressPath.isEmpty ? "正在准备…" : model.progressPath)
-                            .font(.caption)
+                            .progressViewStyle(.linear)
+                            .tint(AppTheme.accent)
+                            .frame(maxWidth: 300)
+                        
+                        Text(model.progressPath)
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .truncationMode(.middle)
+                            .lineLimit(2, reservesSpace: false)
                             .multilineTextAlignment(.center)
-                            .frame(maxWidth: 480)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
                     }
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .animation(.easeOut(duration: 0.25), value: model.isScanning)
-            .padding(.vertical, 8)
         }
     }
 }
@@ -416,94 +427,73 @@ private struct SmallFilePieCard: View {
     }
 
     var body: some View {
-        ChromeCard {
-            VStack(spacing: 14) {
+        ChromeCard(useMaterial: true) {
+            VStack(spacing: 16) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Label("小文件概要", systemImage: "chart.pie.fill")
+                    Label("分类统计", systemImage: "chart.donut")
                         .font(.headline)
                     Spacer()
-                    Text("共 \(ByteFormat.string(fromBytes: totalBytes))")
-                        .font(.subheadline.weight(.medium).monospacedDigit())
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text("合计")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(ByteFormat.string(fromBytes: totalBytes))
+                            .font(.system(size: 14, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(AppTheme.accent)
+                    }
                 }
-                Text("按应用 / 标识聚合。悬停扇区查看详情，点击可筛选下方目录明细。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                HStack(spacing: 40) {
+                    // 图表
+                    ZStack {
+                        Chart(allSlices) { s in
+                            let isActive = selectedGroup == nil || selectedGroup == s.name
+                            SectorMark(
+                                angle: .value("大小", s.bytes),
+                                innerRadius: .ratio(0.65),
+                                outerRadius: hoveredSlice?.id == s.id ? .ratio(1.0) : .ratio(0.92),
+                                angularInset: 1.5
+                            )
+                            .foregroundStyle(Self.palette[s.colorIndex % Self.palette.count].gradient)
+                            .cornerRadius(4)
+                            .opacity(isActive ? (hoveredSlice == nil || hoveredSlice?.id == s.id ? 1.0 : 0.4) : 0.15)
+                        }
+                        .chartAngleSelection(value: $rawSelectedAngle)
+                        .chartLegend(.hidden)
+                        .frame(width: 220, height: 220)
+                        .onTapGesture {
+                            if let h = hoveredSlice { toggleFilter(for: h) }
+                        }
 
-                ZStack {
-                    Chart(allSlices) { s in
-                        let isActive = selectedGroup == nil || selectedGroup == s.name
-                        SectorMark(
-                            angle: .value("大小", s.bytes),
-                            innerRadius: .ratio(0.52),
-                            outerRadius: hoveredSlice?.id == s.id ? .ratio(1.0) : .ratio(0.92),
-                            angularInset: 1.2
-                        )
-                        .foregroundStyle(Self.palette[s.colorIndex % Self.palette.count])
-                        .cornerRadius(3)
-                        .opacity(isActive ? (hoveredSlice == nil || hoveredSlice?.id == s.id ? 1.0 : 0.55) : 0.2)
-                        .annotation(position: .overlay) {
-                            let pct = totalBytes > 0 ? Double(s.bytes) / Double(totalBytes) * 100 : 0
-                            if pct >= 6 {
-                                Text("\(String(format: "%.0f", pct))%")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.white)
-                                    .opacity(isActive ? 1 : 0.3)
+                        // 中心文案
+                        VStack(spacing: 2) {
+                            if let h = hoveredSlice {
+                                let pct = totalBytes > 0 ? Double(h.bytes) / Double(totalBytes) * 100 : 0
+                                Text(h.name)
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .lineLimit(1)
+                                    .multilineTextAlignment(.center)
+                                Text(ByteFormat.string(fromBytes: h.bytes))
+                                    .font(.system(size: 16, weight: .heavy, design: .rounded).monospacedDigit())
+                                Text("\(String(format: "%.1f", pct))%")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Image(systemName: "hand.pointer.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.quaternary)
+                                    .symbolEffect(.pulse)
+                                Text("悬停分析")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.tertiary)
                             }
                         }
-                    }
-                    .chartAngleSelection(value: $rawSelectedAngle)
-                    .chartLegend(.hidden)
-                    .frame(width: 280, height: 280)
-                    .onTapGesture {
-                        if let h = hoveredSlice { toggleFilter(for: h) }
+                        .frame(width: 100)
                     }
 
-                    VStack(spacing: 2) {
-                        if let h = hoveredSlice {
-                            let pct = totalBytes > 0 ? Double(h.bytes) / Double(totalBytes) * 100 : 0
-                            Text(h.name)
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                            Text(ByteFormat.string(fromBytes: h.bytes))
-                                .font(.system(size: 18, weight: .heavy, design: .rounded).monospacedDigit())
-                            Text("\(String(format: "%.1f", pct))%")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Text("\(h.fileCount) 文件 · \(h.dirCount) 目录")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            if !h.isOther {
-                                Text("点击筛选")
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(AppTheme.accent)
-                                    .padding(.top, 2)
-                            }
-                        } else if let sel = selectedGroup {
-                            Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(AppTheme.accent)
-                            Text(sel)
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                            Text("已筛选")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Image(systemName: "chart.pie.fill")
-                                .font(.system(size: 22))
-                                .foregroundStyle(.quaternary)
-                            Text("悬停查看")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .frame(width: 120)
-                    .animation(.easeOut(duration: 0.15), value: hoveredSlice?.id)
+                    // 图例
+                    legendGrid
                 }
-
-                legendGrid
             }
         }
     }

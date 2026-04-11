@@ -6,13 +6,16 @@ struct DevCachesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(
-                    title: "开发工具缓存",
-                    subtitle: "清单区分可清理、谨慎与禁止：可清理项可访达与废纸篓；谨慎项仅访达；系统敏感项按钮置灰不提供操作。",
-                    systemImage: "hammer.fill"
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("开发工具缓存")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("专项管理开发环境产生的冗余数据")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 8)
 
-                ChromeCard {
+                ChromeCard(useMaterial: true) {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("体积测算")
@@ -37,7 +40,7 @@ struct DevCachesView: View {
                 }
 
                 if let err = model.loadError {
-                    ChromeCard {
+                    ChromeCard(useMaterial: true) {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(AppTheme.danger)
@@ -47,7 +50,7 @@ struct DevCachesView: View {
                 }
 
                 if let success = model.lastTrashSuccessPath {
-                    ChromeCard {
+                    ChromeCard(useMaterial: true) {
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(AppTheme.success)
@@ -57,7 +60,7 @@ struct DevCachesView: View {
                     }
                 }
                 if let terr = model.trashError {
-                    ChromeCard {
+                    ChromeCard(useMaterial: true) {
                         HStack(spacing: 10) {
                             Image(systemName: "trash.slash")
                                 .foregroundStyle(AppTheme.danger)
@@ -67,7 +70,7 @@ struct DevCachesView: View {
                     }
                 }
 
-                ChromeCard {
+                ChromeCard(useMaterial: true) {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "info.circle.fill")
                             .foregroundStyle(AppTheme.accent)
@@ -81,51 +84,65 @@ struct DevCachesView: View {
                     }
                 }
 
-                ChromeCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("规则列表", systemImage: "list.number")
+                ChromeCard(useMaterial: true) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Label("清理清单", systemImage: "checklist")
                             .font(.headline)
                         Table(model.scans) {
                             TableColumn("分类") { row in
                                 Text(row.rule.category.displayName)
-                                    .font(.caption.weight(.medium))
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(color(for: row.rule.category).opacity(0.15))
                                     .foregroundStyle(color(for: row.rule.category))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
-                            .width(88)
-                            TableColumn("标题") { row in
-                                Text(row.rule.title)
+                            .width(60)
+                            TableColumn("工具项") { row in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(row.rule.title)
+                                        .fontWeight(.semibold)
+                                    Text(row.rule.description)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
-                            .width(min: 120, ideal: 160)
-                            TableColumn("大小") { row in
+                            .width(min: 140, ideal: 180)
+                            TableColumn("占用大小") { row in
                                 if row.exists {
                                     Text(ByteFormat.string(fromBytes: row.totalBytes))
                                         .monospacedDigit()
+                                        .fontWeight(.medium)
                                 } else {
-                                    Text("—")
+                                    Text("未检测到")
+                                        .font(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }
                             }
-                            .width(min: 90, ideal: 100)
+                            .width(90)
                             TableColumn("路径") { row in
                                 Text(row.resolvedURL?.path ?? row.rule.path)
+                                    .font(.system(size: 10, design: .monospaced))
                                     .lineLimit(1)
                                     .truncationMode(.middle)
+                                    .foregroundStyle(.secondary)
                             }
                             TableColumn("操作") { row in
-                                HStack(spacing: 6) {
+                                HStack(spacing: 8) {
                                     Button {
                                         model.reveal(row)
                                     } label: {
-                                        Image(systemName: "arrow.right.circle.fill")
+                                        Image(systemName: "arrow.up.right.square.fill")
                                     }
                                     .buttonStyle(IconPillButton(tint: AppTheme.accent))
                                     .disabled(finderDisabled(for: row))
-                                    .opacity(row.rule.category == .doNotDelete ? 0.4 : 1)
-                                    .help("在访达中显示")
+                                    
                                     trashSlot(for: row)
                                 }
                             }
-                            .width(200)
+                            .width(120)
                         }
                         .frame(minHeight: 520)
                     }

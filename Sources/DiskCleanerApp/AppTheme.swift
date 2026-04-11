@@ -3,35 +3,68 @@ import SwiftUI
 
 /// 界面主题（参考同类清理工具的信息层次，非 1:1 复刻任何产品）。
 enum AppTheme {
-    /// 主强调色：偏紫的靛蓝
-    static let accent = Color(red: 0.38, green: 0.41, blue: 0.92)
-    static let accentSecondary = Color(red: 0.55, green: 0.48, blue: 0.98)
+    /// 主强调色：深邃靛蓝 (Indigo)
+    static let accent = Color(.sRGB, red: 0.35, green: 0.45, blue: 0.95, opacity: 1.0)
+    static let accentSecondary = Color(.sRGB, red: 0.52, green: 0.39, blue: 0.98, opacity: 1.0)
 
-    static let success = Color(red: 0.2, green: 0.72, blue: 0.45)
-    /// 大文件页「低于阈值合计」指标块用色（黄）
-    static let belowThreshold = Color(red: 0.88, green: 0.72, blue: 0.12)
-    static let warning = Color(red: 0.98, green: 0.62, blue: 0.2)
-    static let danger = Color(red: 0.95, green: 0.32, blue: 0.35)
+    static let success = Color(.sRGB, red: 0.16, green: 0.75, blue: 0.47, opacity: 1.0)
+    static let belowThreshold = Color(.sRGB, red: 0.92, green: 0.72, blue: 0.15, opacity: 1.0)
+    static let warning = Color(.sRGB, red: 1.0, green: 0.64, blue: 0.1, opacity: 1.0)
+    static let danger = Color(.sRGB, red: 0.98, green: 0.32, blue: 0.36, opacity: 1.0)
 
-    static let cardCorner: CGFloat = 14
-    static let cardShadowRadius: CGFloat = 12
+    /// 奢华金 (Luxury Gold) - 用于 Professional 标识
+    static let luxuryGold = Color(.sRGB, red: 0.83, green: 0.69, blue: 0.22, opacity: 1.0)
+    static let luxuryGoldLight = Color(.sRGB, red: 0.98, green: 0.88, blue: 0.6, opacity: 1.0)
+
+    static let cardCorner: CGFloat = 16
+    static let cardShadowRadius: CGFloat = 14
+    static let cardShadowOpacity: Double = 0.08
+}
+
+// MARK: - Native Helpers
+
+/// macOS 原生毛玻璃背景适配器
+struct VisualEffectView: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .sidebar
+    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
 }
 
 struct ChromeCard<Content: View>: View {
+    var useMaterial = false
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
-            .padding(18)
+            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .shadow(color: .black.opacity(0.07), radius: AppTheme.cardShadowRadius, x: 0, y: 4)
+                ZStack {
+                    if useMaterial {
+                        VisualEffectView(material: .sheet, blendingMode: .withinWindow)
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous))
+                    } else {
+                        RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                    }
+                }
+                .shadow(color: .black.opacity(AppTheme.cardShadowOpacity), radius: AppTheme.cardShadowRadius, x: 0, y: 6)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(useMaterial ? 0.1 : 0.07), lineWidth: 0.5)
             }
     }
 }
@@ -79,42 +112,63 @@ struct MetricTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(tint)
+                    .symbolRenderingMode(.hierarchical)
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
+                    .kerning(0.5)
             }
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(16)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(tint.opacity(0.08))
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [tint.opacity(0.12), tint.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(tint.opacity(0.25), lineWidth: 0.5)
         }
     }
 }
 
 struct MainBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color(nsColor: .windowBackgroundColor),
-                AppTheme.accent.opacity(0.04),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            
+            // 顶部微弱的光晕
+            Circle()
+                .fill(AppTheme.accent.opacity(0.06))
+                .blur(radius: 120)
+                .frame(width: 400, height: 400)
+                .offset(x: -200, y: -300)
+
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    AppTheme.accent.opacity(0.03),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
         .ignoresSafeArea()
     }
 }

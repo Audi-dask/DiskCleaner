@@ -1,6 +1,26 @@
 import Foundation
 
-// MARK: - Cancellation token（线程安全，不依赖 Atomics 包）
+// MARK: - File Logger
+
+struct FileLogger {
+    static let logPath = "/tmp/diskcleaner.log"
+    
+    static func log(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        if let data = line.data(using: .utf8) {
+            if !FileManager.default.fileExists(atPath: logPath) {
+                FileManager.default.createFile(atPath: logPath, contents: data)
+            } else if let handle = FileHandle(forWritingAtPath: logPath) {
+                try? handle.seekToEnd()
+                handle.write(data)
+                try? handle.close()
+            }
+        }
+    }
+}
+
+// MARK: - Cancellation token
 
 final class ScanCancellationToken: @unchecked Sendable {
     private var _cancelled = false
@@ -28,6 +48,33 @@ enum ScanEngine {
         }.value
     }
 
+    private static func isSensitivePath(_ path: String) -> Bool {
+        let p = path.lowercased()
+        
+        // 关键路径关键词排除（只要路径包含以下关键词，立即跳过）
+        let sensitiveKeywords = [
+            "/library/mobile documents", "/library/cloudstorage", ".photoslibrary",
+            "/library/messages", "/library/mail", "/library/safari", "/library/calendars",
+            "/library/homekit", "/library/sharing", "/library/suggestions", "/library/weather",
+            "/library/shortcuts", "/library/personalizationportrait", "/library/metadata/corespotlight",
+            "/library/trial", "/library/biome", "/library/accounts", "/library/intelligenceplatform",
+            "/library/applemediaservices", "/library/duetexpertcenter", "/library/assistant",
+            "/library/daemon containers", "/library/autosave information", "/library/identityservices",
+            "/library/intents", "/library/caches/profiles/web_shel1", "/code cache/js",
+            "mobilesync", "com.apple.tcc", "addressbook", "callhistory", "clouddocs", "knowledge",
+            "com.apple.sharedfilelist", "fileprovider", "facetime", "differentialprivacy",
+            "com.apple.avfoundation", "com.apple.aiml.instrumentation", "com.apple.mailpersonastorage",
+            "com.apple.music", "com.apple.photo", "com.apple.itunes", "com.apple.assets",
+            "com.apple.homed", "com.apple.media", "com.apple.quicklook", "com.apple.reminders",
+            "/containers/com.apple.", "/group containers/group.com.apple.", "/music/music", "/.trash"
+        ]
+        
+        for kw in sensitiveKeywords {
+            if p.contains(kw) { return true }
+        }
+        return false
+    }
+
     private static func performScan(
         root: URL,
         thresholdBytes: Int64,
@@ -43,19 +90,21 @@ enum ScanEngine {
         var errors: [String] = []
         var lastProgress = Date()
 
-        let keys: Set<URLResourceKey> = [
-            .isRegularFileKey,
-            .isDirectoryKey,
-            .fileSizeKey,
-            .totalFileAllocatedSizeKey,
-            .contentModificationDateKey,
-        ]
+        // FileLogger.log(">>> 开始扫描: \(root.path) (阈值: \(ByteFormat.string(fromBytes: thresholdBytes)))")
 
         guard let enumerator = fm.enumerator(
             at: root,
-            includingPropertiesForKeys: Array(keys),
-            options: [.skipsPackageDescendants]
+            includingPropertiesForKeys: nil,
+            options: [.skipsPackageDescendants],
+            errorHandler: { (url, error) -> Bool in
+                // 再次加固：如果路径包含任何敏感词，绝对不打印日志
+                if !isSensitivePath(url.path) {
+                    FileLogger.log("[DENIED/ERROR] 目录访问被拒: \(url.path) - \(error.localizedDescription)")
+                }
+                return true // 继续扫描其他目录
+            }
         ) else {
+            FileLogger.log("[FATAL] 无法启动枚举器，根目录可能无权限: \(root.path)")
             return ScanResult(
                 rootURL: root,
                 thresholdBytes: thresholdBytes,
@@ -90,8 +139,8 @@ enum ScanEngine {
         )
 
         largeFiles.sort { $0.size > $1.size }
-         // 展示统计前20个父目录，方便用户快速定位小文件密集区域
-        let topParents = pickTopParents(from: parentAgg, count: 100)
+         // 统计所有父目录，由视图决定展示范围
+        let topParents = pickTopParents(from: parentAgg)
         let appGroups = buildAppGroups(from: parentAgg)
 
         let aggregate = SmallFilesAggregate(
@@ -111,12 +160,11 @@ enum ScanEngine {
         )
     }
 
-    private static func pickTopParents(from agg: [String: (bytes: Int64, count: Int)], count: Int) -> [ParentDirSummary] {
+    private static func pickTopParents(from agg: [String: (bytes: Int64, count: Int)]) -> [ParentDirSummary] {
         guard !agg.isEmpty else { return [] }
         return agg
             .map { ParentDirSummary(path: $0.key, totalBytes: $0.value.bytes, fileCount: $0.value.count, groupKey: extractGroupKey(from: $0.key)) }
             .sorted { ($0.totalBytes, $0.fileCount) > ($1.totalBytes, $1.fileCount) }
-            .prefix(count)
             .map { $0 }
     }
 
@@ -195,6 +243,14 @@ enum ScanEngine {
     ) {
         while let url = enumerator.nextObject() as? URL {
             if token.isCancelled { break }
+
+            // --- 排除逻辑：iCloud, 照片库, 云存储, 以及系统隐私限制目录 ---
+            if isSensitivePath(url.path) {
+                // FileLogger.log("[EXCLUDE] 跳过系统隐私限制目录: \(url.path)")
+                enumerator.skipDescendants()
+                continue
+            }
+
             do {
                 let rv = try url.resourceValues(forKeys: [
                     .isRegularFileKey,
@@ -208,6 +264,11 @@ enum ScanEngine {
                     continue
                 }
                 guard rv.isRegularFile == true else { continue }
+                
+                // 额外的文件名过滤 (可选：排除临时下载或正在同步的文件)
+                if url.lastPathComponent.hasPrefix(".icloud") {
+                    continue
+                }
 
                 let size: Int64
                 if let alloc = rv.totalFileAllocatedSize {
@@ -242,6 +303,7 @@ enum ScanEngine {
                     progress(url.path)
                 }
             } catch {
+                FileLogger.log("[ERROR] 访问错误: \(url.path) - \(error.localizedDescription)")
                 errors.append("\(url.path): \(error.localizedDescription)")
                 if errors.count > 200 {
                     errors.append("… 错误过多，已截断")
@@ -286,13 +348,26 @@ enum ScanEngine {
 
         guard let en = fm.enumerator(
             at: url,
-            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .totalFileAllocatedSizeKey],
-            options: [.skipsPackageDescendants]
+            includingPropertiesForKeys: nil, // 同样不预取
+            options: [.skipsPackageDescendants],
+            errorHandler: { (u, error) -> Bool in
+                if !isSensitivePath(u.path) {
+                    FileLogger.log("[DENIED/SIZE] 测算中目录访问被拒: \(u.path) - \(error.localizedDescription)")
+                }
+                return true
+            }
         ) else {
             return (0, 0, "无法读取目录")
         }
 
         for case let u as URL in en {
+            // 路径排除
+            if isSensitivePath(u.path) {
+                // FileLogger.log("[EXCLUDE/SIZE] 测算中静默跳过敏感目录: \(u.path)")
+                en.skipDescendants()
+                continue
+            }
+
             do {
                 let rv = try u.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .totalFileAllocatedSizeKey])
                 guard rv.isRegularFile == true else { continue }
