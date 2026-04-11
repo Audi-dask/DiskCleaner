@@ -6,7 +6,9 @@ cd "$ROOT"
 
 EXEC_NAME="DiskCleanerApp"
 VOL_NAME="Disk Cleaner"
-DMG_NAME="DiskCleaner.dmg"
+VERSION="1.1.0"
+BUILD_DATE=$(date +%Y%m%d)
+DMG_NAME="DiskCleaner_v${VERSION}_${BUILD_DATE}_macOS.dmg"
 APP_PATH="${ROOT}/dist/${EXEC_NAME}.app"
 STAGE="${ROOT}/dist/dmg_staging"
 
